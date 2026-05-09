@@ -1,4 +1,4 @@
-import "dotenv/config";
-declare const prisma: import("../generated/prisma/internal/class.ts").PrismaClient<never, import("../generated/prisma/internal/prismaNamespace.ts").GlobalOmitConfig, import("@prisma/client/runtime/client").DefaultArgs>;
+import { PrismaClient } from "@prisma/client";
+declare const prisma: PrismaClient<import("@prisma/client").Prisma.PrismaClientOptions, import("@prisma/client").Prisma.LogLevel, import("@prisma/client/runtime/client").DefaultArgs>;
 export default prisma;
 //# sourceMappingURL=prisma.d.ts.map
