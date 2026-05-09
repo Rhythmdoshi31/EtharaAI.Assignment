@@ -1,10 +1,10 @@
 import { Router } from "express";
 import {
-  createProject,
-  getProjects,
-  getProjectById,
-  addMember,
-  removeMember,
+    createProject,
+    getProjects,
+    getProjectById,
+    addMember,
+    removeMember,
 } from "../controllers/projects.controller.js";
 import { asyncWrapper } from "../utils/asyncWrapper.js";
 import { authMiddleware } from "../middleware/auth.js";

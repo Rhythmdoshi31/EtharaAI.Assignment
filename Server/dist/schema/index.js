@@ -14,7 +14,7 @@ export const createProjectSchema = z.object({
     description: z.string().min(1, "Description is required"),
 });
 export const addMemberSchema = z.object({
-    userId: z.number().int().positive("Invalid user ID"),
+    email: z.string().email("Invalid email"),
 });
 export const createTaskSchema = z.object({
     title: z.string().min(1, "Title is required"),

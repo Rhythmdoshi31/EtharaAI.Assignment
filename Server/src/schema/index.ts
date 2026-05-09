@@ -18,7 +18,7 @@ export const createProjectSchema = z.object({
 });
 
 export const addMemberSchema = z.object({
-  userId: z.number().int().positive("Invalid user ID"),
+  email: z.string().email("Invalid email"),
 });
 
 export const createTaskSchema = z.object({

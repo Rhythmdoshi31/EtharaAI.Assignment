@@ -5,172 +5,194 @@ import { createProjectSchema, addMemberSchema } from "../schema/index.js";
 import { isTaskOverdue } from "../utils/task.js";
 
 export const createProject = async (req: AuthRequest, res: Response) => {
-  const data = createProjectSchema.parse(req.body);
+    const data = createProjectSchema.parse(req.body);
 
-  const project = await prisma.project.create({
-    data: {
-      title: data.title,
-      description: data.description,
-      createdBy: req.user!.id,
-      // Create will create the member in the ProjectMember table as well
-      members: {
-        create: {
-          userId: req.user!.id,
+    const project = await prisma.project.create({
+        data: {
+            title: data.title,
+            description: data.description,
+            createdBy: req.user!.id,
+            // Create will create the member in the ProjectMember table as well
+            members: {
+                create: {
+                    userId: req.user!.id,
+                },
+            },
         },
-      },
-    },
-  });
+    });
 
-  res.status(201).json(project);
+    res.status(201).json(project);
 };
 
 export const getProjects = async (req: AuthRequest, res: Response) => {
-  const projects = await prisma.project.findMany({
-    where: {
-      members: {
-        some: {
-          userId: req.user!.id,
+    const projects = await prisma.project.findMany({
+        where: {
+            members: {
+                some: {
+                    userId: req.user!.id,
+                },
+            },
         },
-      },
-    },
-    include: {
-      creator: { select: { id: true, name: true, email: true } },
-    },
-  });
+        include: {
+            creator: { select: { id: true, name: true, email: true } },
+        },
+    });
 
-  res.json(projects);
+    res.json(projects);
 };
 
 export const getProjectById = async (req: AuthRequest, res: Response) => {
-  const projectId = parseInt(req.params.id as string);
+    const projectId = parseInt(req.params.id as string);
 
-  if (isNaN(projectId)) {
-    return res.status(400).json({ message: "Invalid project ID" });
-  }
+    if (isNaN(projectId)) {
+        return res.status(400).json({ message: "Invalid project ID" });
+    }
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      members: {
+    const project = await prisma.project.findUnique({
+        where: { id: projectId },
         include: {
-          user: { select: { id: true, name: true, email: true, role: true } },
+            members: {
+                include: {
+                    user: { select: { id: true, name: true, email: true, role: true } },
+                },
+            },
+            tasks: true,
+            creator: { select: { id: true, name: true, email: true } },
         },
-      },
-      tasks: true,
-      creator: { select: { id: true, name: true, email: true } },
-    },
-  });
+    });
 
-  if (!project) {
-    return res.status(404).json({ message: "Project not found" });
-  }
+    if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+    }
 
-  const isMember = project.members.some((m) => m.userId === req.user!.id);
-  if (!isMember && req.user!.role !== "admin") {
-    return res.status(403).json({ message: "Forbidden: Not a project member" });
-  }
+    const isMember = project.members.some((m) => m.userId === req.user!.id);
+    if (!isMember && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden: Not a project member" });
+    }
 
-  res.json({
-    ...project,
-    tasks: project.tasks.map(task => ({
-      ...task,
-      isOverdue: isTaskOverdue(task.dueDate, task.status)
-    }))
-  });
+    res.json({
+        ...project,
+        tasks: project.tasks.map(task => ({
+            ...task,
+            isOverdue: isTaskOverdue(task.dueDate, task.status)
+        }))
+    });
 };
 
 export const addMember = async (req: AuthRequest, res: Response) => {
-  const projectId = parseInt(req.params.id as string);
-  
-  if (isNaN(projectId)) {
-    return res.status(400).json({ message: "Invalid project ID" });
-  }
+    const projectId = parseInt(req.params.id as string);
 
-  const data = addMemberSchema.parse(req.body);
+    if (isNaN(projectId)) {
+        return res.status(400).json({
+            message: "Invalid project ID",
+        });
+    }
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-  });
+    const data = addMemberSchema.parse(req.body);
 
-  if (!project) {
-    return res.status(404).json({ message: "Project not found" });
-  }
+    const project = await prisma.project.findUnique({
+        where: { id: projectId },
+    });
 
-  const user = await prisma.user.findUnique({
-    where: { id: data.userId },
-  });
+    if (!project) {
+        return res.status(404).json({
+            message: "Project not found",
+        });
+    }
 
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
+    const user = await prisma.user.findUnique({
+        where: {
+            email: data.email,
+        },
+    });
 
-  const existingMember = await prisma.projectMember.findUnique({
-    where: {
-      projectId_userId: {
-        projectId,
-        userId: data.userId,
-      },
-    },
-  });
+    if (!user) {
+        return res.status(404).json({
+            message: "User not found",
+        });
+    }
 
-  if (existingMember) {
-    return res.status(400).json({ message: "User is already a member of this project" });
-  }
+    const existingMember =
+        await prisma.projectMember.findUnique({
+            where: {
+                projectId_userId: {
+                    projectId,
+                    userId: user.id,
+                },
+            },
+        });
 
-  const member = await prisma.projectMember.create({
-    data: {
-      projectId,
-      userId: data.userId,
-    },
-  });
+    if (existingMember) {
+        return res.status(400).json({
+            message:
+                "User is already a member of this project",
+        });
+    }
 
-  res.status(201).json(member);
+    const member = await prisma.projectMember.create({
+        data: {
+            projectId,
+            userId: user.id,
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                },
+            },
+        },
+    });
+
+    res.status(201).json(member);
 };
 
 export const removeMember = async (req: AuthRequest, res: Response) => {
-  const projectId = parseInt(req.params.projectId as string);
-  const userId = parseInt(req.params.userId as string);
+    const projectId = parseInt(req.params.projectId as string);
+    const userId = parseInt(req.params.userId as string);
 
-  if (isNaN(projectId) || isNaN(userId)) {
-    return res.status(400).json({ message: "Invalid project ID or user ID" });
-  }
+    if (isNaN(projectId) || isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid project ID or user ID" });
+    }
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-  });
+    const project = await prisma.project.findUnique({
+        where: { id: projectId },
+    });
 
-  if (!project) {
-    return res.status(404).json({ message: "Project not found" });
-  }
+    if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+    }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+    });
 
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
 
-  if (project.createdBy === userId) {
-    return res.status(400).json({ message: "Cannot remove the project creator" });
-  }
+    if (project.createdBy === userId) {
+        return res.status(400).json({ message: "Cannot remove the project creator" });
+    }
 
-  const existingMember = await prisma.projectMember.findUnique({
-    where: {
-      projectId_userId: {
-        projectId,
-        userId,
-      },
-    },
-  });
+    const existingMember = await prisma.projectMember.findUnique({
+        where: {
+            projectId_userId: {
+                projectId,
+                userId,
+            },
+        },
+    });
 
-  if (!existingMember) {
-    return res.status(404).json({ message: "User is not a member of this project" });
-  }
+    if (!existingMember) {
+        return res.status(404).json({ message: "User is not a member of this project" });
+    }
 
-  await prisma.projectMember.delete({
-    where: { id: existingMember.id },
-  });
+    await prisma.projectMember.delete({
+        where: { id: existingMember.id },
+    });
 
-  res.json({ message: "Member removed successfully" });
+    res.json({ message: "Member removed successfully" });
 };

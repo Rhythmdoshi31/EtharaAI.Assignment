@@ -17,7 +17,7 @@ export declare const createProjectSchema: z.ZodObject<{
     description: z.ZodString;
 }, z.core.$strip>;
 export declare const addMemberSchema: z.ZodObject<{
-    userId: z.ZodNumber;
+    email: z.ZodString;
 }, z.core.$strip>;
 export declare const createTaskSchema: z.ZodObject<{
     title: z.ZodString;

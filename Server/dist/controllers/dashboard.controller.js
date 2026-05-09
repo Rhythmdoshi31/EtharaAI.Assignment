@@ -15,32 +15,12 @@ export const getDashboard = async (req, res) => {
                 status: { not: "done" },
             },
         });
-        const groupedTasks = await prisma.task.groupBy({
-            by: ['assignedTo'],
-            _count: {
-                id: true,
-            },
-        });
-        const userIds = groupedTasks.map(g => g.assignedTo);
-        const users = await prisma.user.findMany({
-            where: { id: { in: userIds } },
-            select: { id: true, name: true }
-        });
-        const tasksPerUser = groupedTasks.map(g => {
-            const u = users.find(u => u.id === g.assignedTo);
-            return {
-                userId: g.assignedTo,
-                name: u?.name || "Unknown",
-                taskCount: g._count.id,
-            };
-        });
         return res.json({
             totalProjects,
             totalUsers,
             totalTasks,
             completedTasks,
             overdueTasks,
-            tasksPerUser,
         });
     }
     else {

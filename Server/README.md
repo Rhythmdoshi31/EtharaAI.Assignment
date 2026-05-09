@@ -42,7 +42,6 @@ The database schema relies on **PostgreSQL** and uses the following relational l
   - *Why does this table exist?* To facilitate a Many-to-Many relationship between Users and Projects. A user can be part of multiple projects, and a project can have multiple users. A dedicated join model allows us to easily add metadata in the future (e.g., specific roles inside a project, join dates).
 - **Task**: The atomic unit of work.
   - *Why do tasks belong to exactly one user?* To ensure clear accountability. In real-world team mechanics, if a task is assigned to a group, nobody takes ownership. A single assignee enforces responsibility. The task also belongs to a `Project`.
-  - *Priority Levels*: Each task has an assigned priority (`low`, `medium`, `high`) using a Prisma Enum, which allows for sorting and filtering important items across the system.
 
 ## 🔐 Authentication & RBAC (Role-Based Access Control) Flow
 
@@ -68,12 +67,11 @@ We implemented a strict Admin/Member hierarchy.
 ### Projects
 - `POST /api/projects` **(Admin Only)**: Create a new project.
 - `GET /api/projects`: Get all projects the logged-in user is a member of.
-- `GET /api/projects/:id`: Get a specific project including its members and tasks. **Secured**: Only accessible if the user is an Admin OR a verified member of the requested project.
+- `GET /api/projects/:id`: Get a specific project including its members and tasks.
 - `POST /api/projects/:id/members` **(Admin Only)**: Add a user to a project.
-- `DELETE /api/projects/:projectId/members/:userId` **(Admin Only)**: Remove a user from a project (prevents removal of the project's creator).
 
 ### Tasks
-- `POST /api/tasks` **(Admin Only)**: Create a new task and assign it to a user. **Secured**: Automatically validates that the assignee is already a member of the linked project, rejecting the request with a `400` status if they are not.
+- `POST /api/tasks` **(Admin Only)**: Create a new task and assign it to a user.
 - `GET /api/tasks/my`: Get all tasks assigned to the logged-in user.
 - `GET /api/tasks/:id`: Get task details.
 - `PATCH /api/tasks/:id/status`: Update task status (`todo`, `in_progress`, `done`). Accessible by assigned member or any Admin.
@@ -90,12 +88,12 @@ We implemented a strict Admin/Member hierarchy.
 ## 📈 Dashboard Stats & Overdue Task Logic
 
 The dashboard provides contextual data:
-- **Admins** see system-wide metrics: Total Projects, Total Users, Total Tasks, Completed Tasks, and System-wide Overdue Tasks. Additionally, it dynamically groups tasks to display a **Tasks Per User** matrix utilizing Prisma's `.groupBy()` aggregations.
+- **Admins** see system-wide metrics: Total Projects, Total Users, Total Tasks, Completed Tasks, and System-wide Overdue Tasks.
 - **Members** see personal metrics: My Tasks count, Completed, Pending, and Overdue Tasks assigned specifically to them.
 
 ### Overdue Logic
 *Why is overdue calculated dynamically rather than stored in the database?*
-Storing an `isOverdue` boolean in the DB requires a continuous background CRON job to constantly check dates and update rows, which is resource-intensive and prone to race conditions. Instead, we calculate it dynamically at request time using a helper function (`isTaskOverdue`). This is highly performant and always guarantees 100% real-time accuracy across all task and project responses. All Task API responses return an augmented JSON containing this dynamic `isOverdue` parameter.
+Storing an `isOverdue` boolean in the DB requires a continuous background CRON job to constantly check dates and update rows, which is resource-intensive and prone to race conditions. Instead, we calculate it dynamically at request time using a database query condition (`dueDate < currentDate AND status != 'done'`). This is highly performant and always guarantees 100% real-time accuracy.
 
 ## 🚀 How to Run Locally
 
@@ -145,19 +143,7 @@ We use `concurrently` and `nodemon` for an optimal developer experience.
   "description": "Secure the endpoints using jsonwebtoken.",
   "assignedTo": 2,
   "projectId": 1,
-  "dueDate": "2026-12-31T23:59:59Z",
-  "priority": "high"
-}
-```
-
-**Task API Response with Overdue Helper**
-```json
-{
-  "id": 1,
-  "title": "Implement JWT Auth",
-  "status": "todo",
-  "priority": "high",
-  "isOverdue": false
+  "dueDate": "2026-12-31T23:59:59Z"
 }
 ```
 
@@ -173,3 +159,4 @@ We use `concurrently` and `nodemon` for an optimal developer experience.
   ]
 }
 ```
+
